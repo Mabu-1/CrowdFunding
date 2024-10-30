@@ -4,66 +4,138 @@ import { useNavigate } from "react-router-dom";
 import { getContract } from "../helper/contract";
 import Loader from "./Loader";
 
+const IPFS_GATEWAYS = [
+  "https://gateway.pinata.cloud/ipfs/",
+  "https://cloudflare-ipfs.com/ipfs/",
+  "https://ipfs.io/ipfs/",
+];
+
 const CampaignList = () => {
   const [campaigns, setCampaigns] = useState([]);
   const navigate = useNavigate();
-  const [loadingDelete, setLoadingDelete] = useState({}); // Track delete loading per campaign
-
+  const [loadingDelete, setLoadingDelete] = useState({});
   const [loading, setLoading] = useState(true);
   const [loadingCampaigns, setLoadingCampaigns] = useState({});
-
   const [error, setError] = useState("");
   const [donationAmounts, setDonationAmounts] = useState({});
 
   const fetchIPFSData = async (hash) => {
-    try {
-      const response = await fetch(`${hash}`);
-      if (!response.ok) throw new Error("Failed to fetch IPFS data");
-      const data = await response.json();
-      return data;
-    } catch (err) {
-      console.error("Error fetching IPFS data:", err);
+    if (!hash) {
+      console.error("Invalid IPFS hash received:", hash);
       return null;
     }
+
+    let lastError;
+
+    for (const gateway of IPFS_GATEWAYS) {
+      try {
+        const url = hash.startsWith("ipfs://")
+          ? hash.replace("ipfs://", gateway)
+          : hash.startsWith("http")
+          ? hash
+          : `${gateway}${hash}`;
+
+        console.log("Attempting to fetch from:", url);
+
+        const response = await fetch(url);
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
+        console.log("Successfully fetched data:", data);
+        return data;
+      } catch (err) {
+        console.warn(`Failed to fetch from ${gateway}:`, err);
+        lastError = err;
+        continue;
+      }
+    }
+
+    console.error("All IPFS gateways failed. Last error:", lastError);
+    return null;
   };
 
   const getAllCampaigns = async () => {
     try {
       setLoading(true);
+      setError("");
+
+      console.log("Initializing contract...");
       const contract = await getContract();
       if (!contract) throw new Error("Failed to load contract");
 
+      console.log("Fetching active campaigns...");
       const onChainCampaigns = await contract.getActiveCampaigns();
+      console.log("Raw campaigns data:", onChainCampaigns);
+
       const campaignsWithData = await Promise.all(
         onChainCampaigns.map(async (campaign, index) => {
-          // Explicitly check if each campaign is active and fetch its IPFS data
-          if (!campaign.isActive) return null; // Skip inactive campaigns
+          try {
+            if (!campaign.isActive) {
+              console.log(`Campaign ${index} is inactive, skipping`);
+              return null;
+            }
 
-          const metaData = Object.values(campaign)[1];
-          const ipfsData = await fetchIPFSData(metaData);
-          return {
-            id: index,
-            owner: campaign.owner,
-            target: ethers.formatEther(campaign.target),
-            deadline: new Date(Number(campaign.deadline) * 1000),
-            amountCollected: ethers.formatEther(campaign.amountCollected),
-            claimed: campaign.claimed,
-            isActive: campaign.isActive,
-            title: ipfsData?.title || "Untitled Campaign",
-            description: ipfsData?.description || "No description available",
-            image:
-              ipfsData?.image?.replace(
+            // Extract metadata URL from campaign
+            const metaData = Object.values(campaign)[1];
+            console.log(`Campaign ${index} metadata URL:`, metaData);
+
+            // Fetch IPFS data
+            const ipfsData = await fetchIPFSData(metaData);
+            console.log(`Campaign ${index} IPFS data:`, ipfsData);
+
+            if (!ipfsData) {
+              console.warn(`Failed to fetch IPFS data for campaign ${index}`);
+              return {
+                id: index,
+                owner: campaign.owner,
+                target: ethers.formatEther(campaign.target),
+                deadline: new Date(Number(campaign.deadline) * 1000),
+                amountCollected: ethers.formatEther(campaign.amountCollected),
+                claimed: campaign.claimed,
+                isActive: campaign.isActive,
+                title: "Unable to load campaign title",
+                description: "Unable to load campaign description",
+                image: "",
+              };
+            }
+
+            // Process image URL
+            let imageUrl = ipfsData.image || "";
+            if (imageUrl.startsWith("ipfs://")) {
+              imageUrl = imageUrl.replace(
                 "ipfs://",
                 "https://gateway.pinata.cloud/ipfs/"
-              ) || "",
-          };
+              );
+            }
+
+            return {
+              id: index,
+              owner: campaign.owner,
+              target: ethers.formatEther(campaign.target),
+              deadline: new Date(Number(campaign.deadline) * 1000),
+              amountCollected: ethers.formatEther(campaign.amountCollected),
+              claimed: campaign.claimed,
+              isActive: campaign.isActive,
+              title: ipfsData.title || "Untitled Campaign",
+              description: ipfsData.description || "No description available",
+              image: imageUrl,
+            };
+          } catch (err) {
+            console.error(`Error processing campaign ${index}:`, err);
+            return null;
+          }
         })
       );
 
-      // Filter out null or inactive campaigns in the final setCampaigns call
-      setCampaigns(
-        campaignsWithData.filter((campaign) => campaign && campaign.isActive)
+      // Filter out null campaigns and log final result
+      const validCampaigns = campaignsWithData.filter(
+        (campaign) => campaign && campaign.isActive
       );
+      console.log("Processed campaigns:", validCampaigns);
+
+      setCampaigns(validCampaigns);
     } catch (err) {
       console.error("Error fetching campaigns:", err);
       setError(err.message || "Failed to fetch campaigns");
@@ -75,15 +147,22 @@ const CampaignList = () => {
   const handleDonate = async (campaignId, amount) => {
     try {
       setLoadingCampaigns((prev) => ({ ...prev, [campaignId]: true }));
+      console.log(
+        `Initiating donation for campaign ${campaignId}: ${amount} ETH`
+      );
+
       const contract = await getContract();
       if (!contract) throw new Error("Failed to load contract");
 
       const tx = await contract.donateToCampaign(campaignId, {
         value: ethers.parseEther(amount),
       });
-      await tx.wait();
+      console.log("Donation transaction:", tx);
 
-      getAllCampaigns(); // Refresh campaigns after donation
+      const receipt = await tx.wait();
+      console.log("Donation receipt:", receipt);
+
+      await getAllCampaigns(); // Refresh campaigns after donation
     } catch (err) {
       console.error("Error donating:", err);
       alert(err.message || "Failed to donate");
@@ -97,21 +176,23 @@ const CampaignList = () => {
       return;
 
     try {
-      // Set loading for the specific campaign ID
       setLoadingDelete((prev) => ({ ...prev, [campaignId]: true }));
+      console.log(`Initiating campaign deletion for ID: ${campaignId}`);
+
       const contract = await getContract();
       if (!contract) throw new Error("Failed to load contract");
 
       const tx = await contract.deleteCampaign(campaignId);
-      await tx.wait();
+      console.log("Delete transaction:", tx);
 
-      // Refresh the campaign list after deactivation
-      getAllCampaigns();
+      const receipt = await tx.wait();
+      console.log("Delete receipt:", receipt);
+
+      await getAllCampaigns();
     } catch (err) {
       console.error("Error deactivating campaign:", err);
       alert(err.message || "Failed to deactivate campaign");
     } finally {
-      // Set loading to false for the specific campaign ID
       setLoadingDelete((prev) => ({ ...prev, [campaignId]: false }));
     }
   };
