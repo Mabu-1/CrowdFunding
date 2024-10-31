@@ -1,4 +1,3 @@
-// CreateCampaign.jsx
 import { ethers } from "ethers";
 import { useState } from "react";
 import { getContract } from "../helper/contract";
@@ -11,7 +10,7 @@ const CreateCampaign = () => {
   const [target, setTarget] = useState("");
   const [deadline, setDeadline] = useState("");
   const [category, setCategory] = useState("MEDICAL_TREATMENT");
-  const [imageMethod, setImageMethod] = useState("upload");
+  const [imageMethod, setImageMethod] = useState("upload"); // 'upload' or 'url'
   const [imageUrl, setImageUrl] = useState("");
   const [image, setImage] = useState(null);
   const [imagePreview, setImagePreview] = useState("");
@@ -115,10 +114,7 @@ const CreateCampaign = () => {
       // Handle image upload/URL
       let finalImageUrls;
       if (imageMethod === "upload" && image) {
-        console.log("Uploading image to IPFS...");
         const imageUpload = await uploadToIPFS(image);
-        console.log("Image upload response:", imageUpload);
-
         if (!imageUpload || !imageUpload.url) {
           throw new Error("Failed to upload image");
         }
@@ -126,8 +122,6 @@ const CreateCampaign = () => {
       } else if (imageMethod === "url" && imageUrl) {
         finalImageUrls = imageUrl;
       }
-
-      console.log("Final image URL:", finalImageUrls);
 
       // Create and upload metadata
       const metadata = {
@@ -138,16 +132,11 @@ const CreateCampaign = () => {
         createdAt: new Date().toISOString(),
       };
 
-      console.log("Preparing metadata:", metadata);
-
       const metadataBlob = new Blob([JSON.stringify(metadata)], {
         type: "application/json",
       });
 
-      console.log("Uploading metadata to IPFS...");
       const metadataUpload = await uploadToIPFS(metadataBlob);
-      console.log("Metadata upload response:", metadataUpload);
-
       if (!metadataUpload || !metadataUpload.url) {
         throw new Error("Failed to upload metadata");
       }
@@ -164,26 +153,20 @@ const CreateCampaign = () => {
         throw new Error("Invalid category selected");
       }
 
-      console.log("Creating campaign with params:", {
-        metadataUrl: metadataUpload.url,
-        target: parsedTarget.toString(),
-        deadline: deadlineTimestamp,
-        category: categoryIndex,
-      });
-
       // Create campaign transaction
       const tx = await contract.createCampaign(
-        metadataUpload.url,
-        parsedTarget,
-        deadlineTimestamp,
-        categoryIndex
+        metadataUpload.url, // _metadataHash
+        parsedTarget, // _target
+        deadlineTimestamp, // _deadline
+        categoryIndex // _category
       );
 
-      console.log("Transaction sent:", tx);
+      console.log("tx==>", tx);
 
       // Wait for transaction confirmation
       const receipt = await tx.wait();
-      console.log("Transaction receipt:", receipt);
+
+      console.log("receipt==>", receipt);
 
       if (receipt.status === 0) {
         throw new Error("Transaction failed");
