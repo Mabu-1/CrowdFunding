@@ -13,55 +13,111 @@ const CampaignList = () => {
   const [error, setError] = useState("");
   const [donationAmounts, setDonationAmounts] = useState({});
 
-  // Gateway URL from environment variable
-  const gatewayUrl = import.meta.env.VITE_GATEWAY_URL;
+  const baseGatewayUrl = import.meta.env.VITE_GATEWAY_URL?.trim();
+  const gatewayUrl = `https://${baseGatewayUrl}/ipfs`.replace(
+    /([^:]\/)\/+/g,
+    "$1"
+  );
 
   const fetchIPFSData = async (hash) => {
-    try {
-      const response = await fetch(`${gatewayUrl}/${hash}`);
-      if (!response.ok) throw new Error("Failed to fetch IPFS data");
-      const data = await response.json();
-      return data;
-    } catch (err) {
-      console.error("Error fetching IPFS data:", err);
+    if (!hash) {
+      console.warn("Empty IPFS hash received");
       return null;
     }
-  };
+    const cleanHash = hash.replace("ipfs://", "").replace(/^\/+|\/+$/g, "");
 
+    try {
+      // Construct the full URL for Pinata
+      const url = `${gatewayUrl}/${cleanHash}`;
+      console.log("Fetching from:", url); // Debug log
+
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error(
+          `HTTP error! status: ${response.status} - ${response.statusText}`
+        );
+      }
+
+      const data = await response.json();
+      if (!data) {
+        throw new Error("Empty response from IPFS");
+      }
+
+      return data;
+    } catch (err) {
+      console.error("Error fetching IPFS data:", {
+        hash,
+        gatewayUrl,
+        error: err.message,
+        cleanHash,
+      });
+      // Return a default object instead of null for better fallback
+      return {
+        title: "Unavailable Campaign",
+        description:
+          "Campaign data could not be loaded. Please check gateway connection.",
+        image: "",
+      };
+    }
+  };
   const getAllCampaigns = async () => {
     try {
       setLoading(true);
+      setError("");
+
       const contract = await getContract();
       if (!contract) throw new Error("Failed to load contract");
 
       const onChainCampaigns = await contract.getActiveCampaigns();
+
       const campaignsWithData = await Promise.all(
         onChainCampaigns.map(async (campaign, index) => {
-          // Explicitly check if each campaign is active and fetch its IPFS data
-          if (!campaign.isActive) return null; // Skip inactive campaigns
+          if (!campaign.isActive) return null;
 
-          const metaData = Object.values(campaign)[1];
-          const ipfsData = await fetchIPFSData(metaData);
-          return {
-            id: index,
-            owner: campaign.owner,
-            target: ethers.formatEther(campaign.target),
-            deadline: new Date(Number(campaign.deadline) * 1000),
-            amountCollected: ethers.formatEther(campaign.amountCollected),
-            claimed: campaign.claimed,
-            isActive: campaign.isActive,
-            title: ipfsData?.title || "Untitled Campaign",
-            description: ipfsData?.description || "No description available",
-            image:
-              ipfsData?.image?.replace("ipfs://", `${gatewayUrl}/ipfs/`) || "",
-          };
+          try {
+            const metaData = Object.values(campaign)[1];
+            const ipfsData = await fetchIPFSData(metaData);
+
+            // Process image URL safely with Pinata gateway
+            let imageUrl = "";
+            if (ipfsData?.image) {
+              const cleanImageHash = ipfsData.image
+                .replace("ipfs://", "")
+                .replace(/^\/+|\/+$/g, "");
+              imageUrl = `${gatewayUrl}/${cleanImageHash}`;
+            }
+
+            return {
+              id: index,
+              owner: campaign.owner,
+              target: ethers.formatEther(campaign.target),
+              deadline: new Date(Number(campaign.deadline) * 1000),
+              amountCollected: ethers.formatEther(campaign.amountCollected),
+              claimed: campaign.claimed,
+              isActive: campaign.isActive,
+              title: ipfsData?.title || "Untitled Campaign",
+              description: ipfsData?.description || "No description available",
+              image: imageUrl,
+              ipfsHash: metaData, // Store the IPFS hash for debugging
+            };
+          } catch (err) {
+            console.error(`Error processing campaign ${index}:`, err);
+            return null;
+          }
         })
       );
 
-      // Filter out null or inactive campaigns in the final setCampaigns call
-      setCampaigns(
-        campaignsWithData.filter((campaign) => campaign && campaign.isActive)
+      const validCampaigns = campaignsWithData.filter(
+        (campaign) => campaign && campaign.isActive
       );
+
+      setCampaigns(validCampaigns);
+
+      if (validCampaigns.length === 0 && onChainCampaigns.length > 0) {
+        setError(
+          "Unable to load campaign details. Please check your Pinata gateway connection."
+        );
+      }
     } catch (err) {
       console.error("Error fetching campaigns:", err);
       setError(err.message || "Failed to fetch campaigns");
