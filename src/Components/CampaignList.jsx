@@ -8,16 +8,17 @@ const CampaignList = () => {
   const [campaigns, setCampaigns] = useState([]);
   const navigate = useNavigate();
   const [loadingDelete, setLoadingDelete] = useState({}); // Track delete loading per campaign
-
   const [loading, setLoading] = useState(true);
   const [loadingCampaigns, setLoadingCampaigns] = useState({});
-
   const [error, setError] = useState("");
   const [donationAmounts, setDonationAmounts] = useState({});
 
+  // Gateway URL from environment variable
+  const gatewayUrl = import.meta.env.VITE_GATEWAY_URL;
+
   const fetchIPFSData = async (hash) => {
     try {
-      const response = await fetch(`${hash}`);
+      const response = await fetch(`${gatewayUrl}/${hash}`);
       if (!response.ok) throw new Error("Failed to fetch IPFS data");
       const data = await response.json();
       return data;
@@ -52,10 +53,7 @@ const CampaignList = () => {
             title: ipfsData?.title || "Untitled Campaign",
             description: ipfsData?.description || "No description available",
             image:
-              ipfsData?.image?.replace(
-                "ipfs://",
-                "https://gateway.pinata.cloud/ipfs/"
-              ) || "",
+              ipfsData?.image?.replace("ipfs://", `${gatewayUrl}/ipfs/`) || "",
           };
         })
       );
@@ -256,34 +254,12 @@ const CampaignList = () => {
                         <button
                           onClick={() => handleDelete(campaign.id)}
                           className="px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700 text-sm"
+                          disabled={loadingDelete[campaign.id]}
                         >
-                          {loadingDelete[campaign.id]
-                            ? "Deleting..."
-                            : "Delete"}
+                          {loadingDelete[campaign.id] ? "Loading..." : "Delete"}
                         </button>
                       </div>
                     )}
-                    {campaign.claimed && (
-                      <p className="mt-4 text-green-500 text-center">
-                        Campaign funds claimed
-                      </p>
-                    )}
-                    {new Date() >= campaign.deadline && !campaign.claimed && (
-                      <p className="mt-4 text-red-500 text-center">
-                        Campaign deadline passed, awaiting claim
-                      </p>
-                    )}
-                    {/* Update Campaign Button */}
-                    <div className="mt-4">
-                      <button
-                        onClick={() =>
-                          navigate("/updateCampaign", { state: campaign })
-                        }
-                        className="w-full px-3 py-2 bg-yellow-500 text-white rounded hover:bg-yellow-600 text-sm"
-                      >
-                        Update Campaign
-                      </button>
-                    </div>
                   </div>
                 </div>
               ))}
