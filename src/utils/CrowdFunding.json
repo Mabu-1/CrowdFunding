@@ -256,6 +256,11 @@
         "internalType": "uint256",
         "name": "_id",
         "type": "uint256"
+      },
+      {
+        "internalType": "address",
+        "name": "owner2",
+        "type": "address"
       }
     ],
     "name": "deleteCampaign",
@@ -448,6 +453,11 @@
   },
   {
     "inputs": [
+      {
+        "internalType": "address",
+        "name": "owner1",
+        "type": "address"
+      },
       {
         "internalType": "uint256",
         "name": "_id",

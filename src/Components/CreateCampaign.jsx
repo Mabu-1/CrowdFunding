@@ -101,7 +101,7 @@ const CreateCampaign = () => {
       const accounts = await window.ethereum.request({
         method: "eth_requestAccounts",
       });
-
+      console.log(accounts[0]);
       if (!accounts || accounts.length === 0) {
         throw new Error("No connected account found");
       }

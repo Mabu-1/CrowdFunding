@@ -92,7 +92,7 @@ const CampaignList = () => {
     }
   };
 
-  const handleDelete = async (campaignId) => {
+  const handleDelete = async (campaignId, campaignOwner) => {
     if (!window.confirm("Are you sure you want to deactivate this campaign?"))
       return;
 
@@ -102,7 +102,7 @@ const CampaignList = () => {
       const contract = await getContract();
       if (!contract) throw new Error("Failed to load contract");
 
-      const tx = await contract.deleteCampaign(campaignId);
+      const tx = await contract.deleteCampaign(campaignId, campaignOwner);
       await tx.wait();
 
       // Refresh the campaign list after deactivation
@@ -254,7 +254,9 @@ const CampaignList = () => {
                             : "Donate"}
                         </button>
                         <button
-                          onClick={() => handleDelete(campaign.id)}
+                          onClick={() =>
+                            handleDelete(campaign.id, campaign.owner)
+                          }
                           className="px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700 text-sm"
                         >
                           {loadingDelete[campaign.id]

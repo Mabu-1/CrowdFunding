@@ -72,6 +72,7 @@ const UpdateCampaign = () => {
 
       // Call smart contract to update campaign
       const tx = await contract.updateCampaign(
+        campaignData.owner,
         campaignData.id, // Campaign ID
         metadataUpload.url, // IPFS URL for metadata
         targetAmount, // Target amount in Wei
