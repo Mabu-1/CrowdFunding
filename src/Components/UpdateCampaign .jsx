@@ -12,6 +12,7 @@ const UpdateCampaign = () => {
 
   const [formData, setFormData] = useState({
     title: campaignData.title || "",
+    owner: campaignData.owner || "",
     description: campaignData.description || "",
     target: campaignData.target || "",
     image: campaignData.image || "",
@@ -69,7 +70,7 @@ const UpdateCampaign = () => {
       const deadlineTimestamp = Math.floor(
         new Date(formData.deadline).getTime() / 1000
       );
-
+      console.log(campaignData);
       // Call smart contract to update campaign
       const tx = await contract.updateCampaign(
         campaignData.owner,
@@ -123,6 +124,7 @@ const UpdateCampaign = () => {
           {error && <p className="text-red-500 text-center mb-4">{error}</p>}
 
           {/* Title Input */}
+
           <div>
             <label
               htmlFor="title"

@@ -90,6 +90,7 @@ contract CrowdFunding {
 
     // Update campaign metadata and other details
     function updateCampaign(
+        address owner1,
         uint256 _id,
         string memory _newMetadataHash,
         uint256 _newTarget,
@@ -97,7 +98,7 @@ contract CrowdFunding {
     ) public {
         require(_id < campaignCount, "Invalid campaign ID");
         Campaign storage campaign = campaigns[_id];
-        require(msg.sender == campaign.owner, "Only owner can update the campaign");
+        require(owner1 == campaign.owner, "Only owner can update the campaign");
         require(campaign.isActive, "Cannot update an inactive campaign");
         require(_newDeadline > block.timestamp, "New deadline must be in the future");
         require(_newTarget > 0, "Target amount must be greater than 0");
@@ -111,16 +112,16 @@ contract CrowdFunding {
     }
 
     // Soft delete a campaign
-function deleteCampaign(uint256 _id) public {
-    require(_id < campaignCount, "Invalid campaign ID");
-    Campaign storage campaign = campaigns[_id];
-    require(msg.sender == campaign.owner, "Only owner can delete the campaign");
-    require(campaign.isActive, "Campaign is already inactive");
-    require(campaign.amountCollected == 0, "Cannot delete campaign with donations");
+    function deleteCampaign(uint256 _id, address owner2) public {
+        require(_id < campaignCount, "Invalid campaign ID");
+        Campaign storage campaign = campaigns[_id];
+        require(owner2 == campaign.owner, "Only owner can delete the campaign");
+        require(campaign.isActive, "Campaign is already inactive");
 
-    campaign.isActive = false;
-    emit CampaignDeleted(_id);
-}
+        campaign.isActive = false;
+        emit CampaignDeleted(_id);
+    }
+
     // Donate to a campaign
     function donateToCampaign(uint256 _id) public payable {
         require(_id < campaignCount, "Invalid campaign ID");

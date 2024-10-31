@@ -64,6 +64,7 @@ const CampaignList = () => {
       setCampaigns(
         campaignsWithData.filter((campaign) => campaign && campaign.isActive)
       );
+      console.log(campaignsWithData);
     } catch (err) {
       console.error("Error fetching campaigns:", err);
       setError(err.message || "Failed to fetch campaigns");
