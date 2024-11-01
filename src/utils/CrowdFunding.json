@@ -160,6 +160,11 @@
     "name": "campaigns",
     "outputs": [
       {
+        "internalType": "uint256",
+        "name": "id",
+        "type": "uint256"
+      },
+      {
         "internalType": "address",
         "name": "owner",
         "type": "address"
@@ -256,11 +261,6 @@
         "internalType": "uint256",
         "name": "_id",
         "type": "uint256"
-      },
-      {
-        "internalType": "address",
-        "name": "owner2",
-        "type": "address"
       }
     ],
     "name": "deleteCampaign",
@@ -287,6 +287,11 @@
     "outputs": [
       {
         "components": [
+          {
+            "internalType": "uint256",
+            "name": "id",
+            "type": "uint256"
+          },
           {
             "internalType": "address",
             "name": "owner",
@@ -347,6 +352,11 @@
     "name": "getCampaignDetails",
     "outputs": [
       {
+        "internalType": "uint256",
+        "name": "id",
+        "type": "uint256"
+      },
+      {
         "internalType": "address",
         "name": "owner",
         "type": "address"
@@ -403,6 +413,11 @@
       {
         "components": [
           {
+            "internalType": "uint256",
+            "name": "id",
+            "type": "uint256"
+          },
+          {
             "internalType": "address",
             "name": "owner",
             "type": "address"
@@ -452,12 +467,33 @@
     "type": "function"
   },
   {
-    "inputs": [
+    "inputs": [],
+    "name": "getTotalActiveCampaigns",
+    "outputs": [
       {
-        "internalType": "address",
-        "name": "owner1",
-        "type": "address"
-      },
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "getTotalCampaigns",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
       {
         "internalType": "uint256",
         "name": "_id",

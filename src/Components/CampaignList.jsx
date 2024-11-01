@@ -35,14 +35,15 @@ const CampaignList = () => {
 
       const onChainCampaigns = await contract.getActiveCampaigns();
       const campaignsWithData = await Promise.all(
-        onChainCampaigns.map(async (campaign, index) => {
-          // Explicitly check if each campaign is active and fetch its IPFS data
-          if (!campaign.isActive) return null; // Skip inactive campaigns
+        onChainCampaigns.map(async (campaign) => {
+          // Now we can directly access the ID from the campaign struct
+          if (!campaign.isActive) return null;
 
-          const metaData = Object.values(campaign)[1];
+          const metaData = campaign.metadataHash; // Updated to use the correct field name
           const ipfsData = await fetchIPFSData(metaData);
+
           return {
-            id: index,
+            id: Number(campaign.id), // Convert BigNumber to regular number if needed
             owner: campaign.owner,
             target: ethers.formatEther(campaign.target),
             deadline: new Date(Number(campaign.deadline) * 1000),
@@ -60,7 +61,6 @@ const CampaignList = () => {
         })
       );
 
-      // Filter out null or inactive campaigns in the final setCampaigns call
       setCampaigns(
         campaignsWithData.filter((campaign) => campaign && campaign.isActive)
       );
@@ -93,7 +93,7 @@ const CampaignList = () => {
     }
   };
 
-  const handleDelete = async (campaignId, campaignOwner) => {
+  const handleDelete = async (campaignId) => {
     if (!window.confirm("Are you sure you want to deactivate this campaign?"))
       return;
 
@@ -103,7 +103,7 @@ const CampaignList = () => {
       const contract = await getContract();
       if (!contract) throw new Error("Failed to load contract");
 
-      const tx = await contract.deleteCampaign(campaignId, campaignOwner);
+      const tx = await contract.deleteCampaign(campaignId);
       await tx.wait();
 
       // Refresh the campaign list after deactivation
@@ -260,9 +260,7 @@ const CampaignList = () => {
                           }
                           className="px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700 text-sm"
                         >
-                          {loadingDelete[campaign.id]
-                            ? "Deleting..."
-                            : "Delete"}
+                          {loadingDelete[campaign.id] ? "Closing..." : "close"}
                         </button>
                       </div>
                     )}
